@@ -5,6 +5,7 @@ import java.awt.event.ActionEvent;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -17,7 +18,7 @@ public class PrimeNumberFinder extends JFrame
 	
 	private JButton start = new JButton("Start");
 	private JButton cancel = new JButton("Cancel");
-	private boolean isCanceled = false;
+	volatile private boolean isCanceled = false;
 	private JTextArea status = new JTextArea();
 	private JScrollPane jsp;
 	private JTextField input = new JTextField("Add number here");
@@ -60,6 +61,8 @@ public class PrimeNumberFinder extends JFrame
 			cancel.setEnabled(true);
 			start.setEnabled(false);
 			input.setEnabled(false);
+			status.setText("");
+			output.setText("");
 			new Thread(new finder()).start();
 		}
 	}
@@ -69,74 +72,87 @@ public class PrimeNumberFinder extends JFrame
 		validate();
 	}
 	
+	
 	private class finder implements Runnable
 	{
-		ArrayList<Integer> primes = new ArrayList<Integer>();
-		public void run()
+		volatile long startTime = System.currentTimeMillis();
+		//long someTimePassed = 0;
+		volatile long timePointA = System.currentTimeMillis();
+		volatile long timePointB;
+		volatile long saveTimePoint = 0;
+		
+		private void setMessage(String s, long i, long num)
 		{
-			float startTime = System.currentTimeMillis();
-			float someTimePassed;
-			int num = Integer.parseInt(input.getText());
-			try
-			{
-				//
-				if (num > 1)
-				{
-					while(!isCanceled)
-					{
-						//for every number 'i' to 'num', judge if i is a prime.
-						for(int i = 2; i <= num; i++) 
-						{
-							someTimePassed = System.currentTimeMillis() - startTime;
-							
-							//if there is no value 'j' that makes "i % j == 0" true, then i is a prime.
-							for(int j = 2; j < i/2; j++)
-							{
-								if(i % j > 0)
-								{
-									if ((System.currentTimeMillis() - someTimePassed) > 5000f)
-									{
-										output.setText("Found " + primes.size() + " in " + i + " of " + num + " " + (System.currentTimeMillis() - startTime)/1000f);
-										updateText();
-									}
-									continue;
-								}
-								else
-								{
-									status.append("" + i + "\n");
-									primes.add(i);
-									if ((System.currentTimeMillis() - someTimePassed) > 5000f)
-									{
-										output.setText("Found " + primes.size() + " in " + i + " of " + num);
-									}
-									updateText();
-									break;
-								}
-							}
-						}
-					break;
+			SwingUtilities.invokeLater(new Runnable() {
+				
+				@Override
+				public void run() {
+					// TODO Auto-generated method stub
+					if ((timePointB - timePointA)/1000.0 > 5.0) 
+					{ 
+						saveTimePoint += (timePointB - timePointA);
+						output.setText("Found " + primes.size() + " in " + i + " of " + num + " " + (saveTimePoint)/1000f + " s");
+						updateText();
+						timePointA = System.currentTimeMillis();
 					}
 				}
-				float endTime = System.currentTimeMillis();
-				float totalTime = (endTime - startTime)/1000f;
-				status.append("Total time: " + totalTime);
-			}
-			catch(Exception e)
+			});
+		}
+		
+		
+		
+		ArrayList<Long> primes = new ArrayList<Long>();
+		public void run()
+		{
+			long num = Long.parseLong(input.getText());
+			
+			//for every number 'i' to 'num', judge if i is a prime.
+			for(long i = 1; i <= num && !isCanceled; i++) 
 			{
-				//
+				timePointB = System.currentTimeMillis();
+				boolean isCom = false;
+				
+				//if there is no value 'j' that makes "i % j == 0" true, then i is a prime.
+				for(long j = 2; j <= i/2 && !isCom; j++)
+				{
+					if(i % j == 0) //if com
+					{
+						isCom = true;
+					}
+					
+				}
+				timePointB = System.currentTimeMillis();
+					
+				if(!isCom)
+				{
+					status.append("" + i + "\n");
+					primes.add(i);
+					setMessage("h", i, num);
+					//isComposite = true;
+				}
+				
 			}
+			
+			
+			long endTime = System.currentTimeMillis();
+			long totalTime = (endTime - startTime)/1000l;
+			output.setText("Found " + primes.size() + " in " + num + " of " + num + " " + totalTime + " s");
+			status.append("Total time: " + totalTime);
+			updateText();
+			
 			cancel.setEnabled(false);
 			start.setEnabled(true);
 			input.setEnabled(true);
+			isCanceled = false;
 		}
 	}
 	
 	PrimeNumberFinder()
 	{
 		super("Prime Number Finder");
-		setLocationRelativeTo(null);
-		setSize(400,400);
-		setVisible(true);
+		//setLocationRelativeTo(null);
+		//setSize(400,400);
+		//setVisible(true);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		getContentPane().setLayout(new BorderLayout());
 		getContentPane().add(topPanel(), BorderLayout.NORTH);
@@ -157,7 +173,9 @@ public class PrimeNumberFinder extends JFrame
 			}
 		});
 		
-		
+		setLocationRelativeTo(null);
+		setSize(600,400);
+		setVisible(true);
 	}
 	
 	public static void main(String[] args) {
